@@ -7,7 +7,7 @@ import pprint
 
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
-    print(fullname)
+    # print(fullname)
     if not os.path.isfile(fullname):
         print('not found')
         sys.exit()
@@ -23,6 +23,7 @@ def load_image(name, colorkey=None):
 
 
 def load_level(filename):
+    # print(filename)
     filename = "data/" + filename
     # читаем уровень, убирая символы перевода строки
     with open(filename, 'r') as mapFile:
@@ -78,8 +79,8 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.rect.move(x, y)
         if pygame.sprite.spritecollideany(self, walls_group):
             self.rect = self.rect.move(-x, -y)
-        elif self.rect.x + self.rect.w == w or self.rect.y + self.rect.h == h or \
-            self.rect.x + self.rect.w < 0 or self.rect.y + self.rect.h < 0:
+        elif self.rect.x + self.rect.w >= w or self.rect.y + self.rect.h >= h or \
+                self.rect.x + self.rect.w < 0 or self.rect.y + self.rect.h < 0:
             self.rect = self.rect.move(-x, -y)
 
 
@@ -111,8 +112,8 @@ def start_screen():
 
 def play():
     global running, state, player
-    data = load_level('level.txt')
-    player, x, y = generate_level(data)
+    # data = load_level(level)
+    player, x, y = generate_level(level)
     while running and state == 'play':
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -127,6 +128,7 @@ def play():
                 if event.key == pygame.K_LEFT:
                     player.update(-tile_width, 0)
         all_sprites.draw(screen)
+        player_group.draw(screen)
         pygame.display.flip()
     if not running:
         pygame.quit()
@@ -135,6 +137,11 @@ def play():
 states = {'start screen': start_screen, 'play': play}
 
 if __name__ == '__main__':
+    level_name = input()
+    fullname = os.path.join('data', level_name)
+    if not os.path.isfile(fullname):
+        print('not found')
+        sys.exit()
     pygame.init()
     pygame.display.set_caption('3rd')
 
@@ -160,48 +167,9 @@ if __name__ == '__main__':
     }
     player_image = load_image('mar.png')
 
+    level = load_level(level_name)
+
     state = 'start screen'
     running = True
     clock = pygame.time.Clock()
     states[state]()
-    # screen.fill("black")
-    #
-    # fps = 10
-    #
-    # all_sprites = pygame.sprite.Group()
-    # vertical = pygame.sprite.Group()
-    # horizontal = pygame.sprite.Group()
-    #
-
-    # state = 'start screen'
-    # while running:
-    #     for event in pygame.event.get():
-    #         if event.type == pygame.QUIT:
-    #             running = False
-    #         if event.type == pygame.MOUSEBUTTONDOWN and pygame.key.get_mods() == 4160:
-    #             VerticalPlatform(event.pos[0], event.pos[1])
-    #         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-    #             if character is not None:
-    #                 all_sprites.remove(character)
-    #             character = Character(event.pos[0], event.pos[1])
-    #         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
-    #             Platform(event.pos[0], event.pos[1])
-    #         elif event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
-    #             if character is not None:
-    #                 side_move = 'left'
-    #         elif event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
-    #             if character is not None:
-    #                 side_move = 'right'
-    #         if event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
-    #             if character is not None:
-    #                 side_move = 'up'
-    #         if event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN:
-    #             if character is not None:
-    #                 side_move = 'down'
-    #     if character is not None:
-    #         character.update(side_move)
-    #         side_move = None
-    #     render()
-    #     pygame.display.flip()
-    #     clock.tick(fps)
-    # pygame.quit()
