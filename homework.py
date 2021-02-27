@@ -5,6 +5,9 @@ import random
 import pprint
 
 
+board_w, board_h = None, None
+
+
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
     # print(fullname)
@@ -23,14 +26,17 @@ def load_image(name, colorkey=None):
 
 
 def load_level(filename):
+    global board_h, board_w
     # print(filename)
     filename = "data/" + filename
     # читаем уровень, убирая символы перевода строки
     with open(filename, 'r') as mapFile:
         level_map = [line.strip() for line in mapFile]
 
+    board_h = len(level_map) * tile_height
     # и подсчитываем максимальную длину
-    max_width = max(map(len, level_map))
+    max_width = board_w = max(map(len, level_map))
+    board_w *= tile_width
 
     # дополняем каждую строку пустыми клетками ('.')
     return list(map(lambda x: x.ljust(max_width, '.'), level_map))
@@ -68,20 +74,61 @@ class Wall(Tile):
         walls_group.add(self)
 
 
+class Border(pygame.sprite.Sprite):
+    def __init__(self, x, y, w, h):
+        super(Border, self).__init__(all_sprites, borders_group)
+        self.image = pygame.Surface((w, h),
+                                    pygame.SRCALPHA, 32)
+        pygame.draw.rect(self.image, pygame.Color("black"), (0, 0, w, h))
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
         super().__init__(player_group, all_sprites)
         self.image = player_image
         self.rect = self.image.get_rect().move(
             tile_width * pos_x + 15, tile_height * pos_y + 5)
+        self.rect.w = tile_width
+        self.rect.h = tile_height
 
     def update(self, x, y) -> None:
+        wall_collide = False
+        border_collide = False
         self.rect = self.rect.move(x, y)
-        if pygame.sprite.spritecollideany(self, walls_group):
+        # print(f"first coords: {self.rect.x, self.rect.y}")
+
+        for wall in walls_group:
+            if pygame.sprite.collide_rect_ratio(0.5)(self, wall):
+                wall_collide = True
+        for border in borders_group:
+            if pygame.sprite.collide_rect_ratio(1.0)(self, border):
+                border_collide = True
+        if wall_collide:
             self.rect = self.rect.move(-x, -y)
-        elif self.rect.x + self.rect.w >= w or self.rect.y + self.rect.h >= h or \
-                self.rect.x + self.rect.w < 0 or self.rect.y + self.rect.h < 0:
+            # print(f"second coords (wall) : {self.rect.x, self.rect.y}")
+        elif border_collide:
             self.rect = self.rect.move(-x, -y)
+            # print(f"second coords (border): {self.rect.x, self.rect.y}")
+
+
+class Camera:
+    # зададим начальный сдвиг камеры
+    def __init__(self):
+        self.dx = 0
+        self.dy = 0
+
+    # сдвинуть объект obj на смещение камеры
+    def apply(self, obj):
+        obj.rect.x += self.dx
+        obj.rect.y += self.dy
+
+    # позиционировать камеру на объекте target
+    def update(self, target):
+        self.dx = -(target.rect.x + target.rect.w // 2 - w // 2)
+        self.dy = -(target.rect.y + target.rect.h // 2 - h // 2)
 
 
 def start_screen():
@@ -112,8 +159,13 @@ def start_screen():
 
 def play():
     global running, state, player
+    camera = Camera()
     # data = load_level(level)
     player, x, y = generate_level(level)
+    Border(-tile_width, -tile_height + 5, board_w + tile_width * 2, 1)
+    Border(-tile_width + 15, -tile_height, 1, board_h + tile_height * 2)
+    Border(-tile_width + 15, board_h + tile_height - 5, board_w + tile_width * 2, 1)
+    Border(board_w + tile_width - 15, -tile_height + 5, 1, board_h + tile_height * 2)
     while running and state == 'play':
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -127,6 +179,11 @@ def play():
                     player.update(tile_width, 0)
                 if event.key == pygame.K_LEFT:
                     player.update(-tile_width, 0)
+        camera.update(player)
+
+        for sprite in all_sprites:
+            camera.apply(sprite)
+        screen.fill("black")
         all_sprites.draw(screen)
         player_group.draw(screen)
         pygame.display.flip()
@@ -137,7 +194,7 @@ def play():
 states = {'start screen': start_screen, 'play': play}
 
 if __name__ == '__main__':
-    level_name = input()
+    level_name = 'longlevel.txt'
     fullname = os.path.join('data', level_name)
     if not os.path.isfile(fullname):
         print('not found')
@@ -149,16 +206,13 @@ if __name__ == '__main__':
     screen = pygame.display.set_mode(size)
 
     fon = pygame.transform.scale(load_image('background.jpg'), (w, h))
-    # grass_block = load_image('grass.png')
-    # box_block = load_image('box.png')
-    # mar_image = load_image('mar.png')
 
     player = None
 
-    # группы спрайтов
     all_sprites = pygame.sprite.Group()
     tiles_group = pygame.sprite.Group()
     walls_group = pygame.sprite.Group()
+    borders_group = pygame.sprite.Group()
     player_group = pygame.sprite.Group()
 
     tile_images = {
