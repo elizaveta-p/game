@@ -229,7 +229,7 @@ if __name__ == '__main__':
 
     level = load_level(level_name)
     level = np.array([[y for y in x] for x in level], dtype=np.str_)
-    print(level)
+    # print(level)
 
     state = 'start screen'
     running = True
