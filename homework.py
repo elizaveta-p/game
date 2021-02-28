@@ -3,9 +3,11 @@ import sys
 import os
 import random
 import pprint
+import numpy as np
 
 
 board_w, board_h = None, None
+start_x, start_y = None, None
 
 
 def load_image(name, colorkey=None):
@@ -43,18 +45,45 @@ def load_level(filename):
 
 
 def generate_level(level):
+    global start_x, start_y
     new_player, x, y = None, None, None
     for y in range(len(level)):
         for x in range(len(level[y])):
-            if level[y][x] == '.':
-                Tile('empty', x, y)
-            elif level[y][x] == '#':
-                Wall('wall', x, y)
-            elif level[y][x] == '@':
-                Tile('empty', x, y)
+            if level[y, x] == '.':
+                Tile('empty', x * tile_width - 15, y * tile_height - 35)
+            elif level[y, x] == '#':
+                Wall('wall', x * tile_width - 15, y * tile_height - 35)
+            elif level[y, x] == '@':
+                Tile('empty', x * tile_width - 15, y * tile_height - 35)
+                start_x, start_y = x, y
                 new_player = Player(x, y)
     # вернем игрока, а также размер поля в клетках
     return new_player, x, y
+
+
+def update_level(a, b):
+    global level
+    for tile in tiles_group:
+        all_sprites.remove(tile)
+    level = np.roll(level, a, axis=b)
+    # print(level)
+    for y in range(len(level)):
+        for x in range(len(level[y])):
+            if level[y, x] == '.':
+                Tile('empty', x * tile_width - 15, y * tile_height - 35)
+            elif level[y, x] == '#':
+                Wall('wall', x * tile_width - 15, y * tile_height - 35)
+            elif level[y, x] == '@':
+                Tile('empty', x * tile_width - 15, y * tile_height - 35)
+
+
+def check_move(a, b):
+    global level
+    update_level(a, b)
+    for line in range(len(level)):
+        for col in range(len(level[line])):
+            if level[line, col] == '#' and line == start_y and col == start_x:
+                update_level(-a, b)
 
 
 tile_width = tile_height = 50
@@ -65,7 +94,7 @@ class Tile(pygame.sprite.Sprite):
         super().__init__(tiles_group, all_sprites)
         self.image = tile_images[tile_type]
         self.rect = self.image.get_rect().move(
-            tile_width * pos_x, tile_height * pos_y)
+            pos_x, pos_y)
 
 
 class Wall(Tile):
@@ -89,29 +118,11 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
         super().__init__(player_group, all_sprites)
         self.image = player_image
-        self.rect = self.image.get_rect().move(
-            tile_width * pos_x + 15, tile_height * pos_y + 5)
+        self.rect = self.image.get_rect()
+        self.rect.x = 235
+        self.rect.y = 115
         self.rect.w = tile_width
         self.rect.h = tile_height
-
-    def update(self, x, y) -> None:
-        wall_collide = False
-        border_collide = False
-        self.rect = self.rect.move(x, y)
-        # print(f"first coords: {self.rect.x, self.rect.y}")
-
-        for wall in walls_group:
-            if pygame.sprite.collide_rect_ratio(0.5)(self, wall):
-                wall_collide = True
-        for border in borders_group:
-            if pygame.sprite.collide_rect_ratio(1.0)(self, border):
-                border_collide = True
-        if wall_collide:
-            self.rect = self.rect.move(-x, -y)
-            # print(f"second coords (wall) : {self.rect.x, self.rect.y}")
-        elif border_collide:
-            self.rect = self.rect.move(-x, -y)
-            # print(f"second coords (border): {self.rect.x, self.rect.y}")
 
 
 class Camera:
@@ -159,7 +170,6 @@ def start_screen():
 
 def play():
     global running, state, player
-    camera = Camera()
     # data = load_level(level)
     player, x, y = generate_level(level)
     Border(-tile_width, -tile_height + 5, board_w + tile_width * 2, 1)
@@ -172,17 +182,13 @@ def play():
                 running = False
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_DOWN:
-                    player.update(0, tile_height)
-                if event.key == pygame.K_UP:
-                    player.update(0, -tile_height)
-                if event.key == pygame.K_RIGHT:
-                    player.update(tile_width, 0)
-                if event.key == pygame.K_LEFT:
-                    player.update(-tile_width, 0)
-        camera.update(player)
-
-        for sprite in all_sprites:
-            camera.apply(sprite)
+                    check_move(-1, 0)
+                elif event.key == pygame.K_UP:
+                    check_move(1, 0)
+                elif event.key == pygame.K_RIGHT:
+                    check_move(-1, 1)
+                elif event.key == pygame.K_LEFT:
+                    check_move(1, 1)
         screen.fill("black")
         all_sprites.draw(screen)
         player_group.draw(screen)
@@ -194,7 +200,7 @@ def play():
 states = {'start screen': start_screen, 'play': play}
 
 if __name__ == '__main__':
-    level_name = 'longlevel.txt'
+    level_name = 'new_level.txt'
     fullname = os.path.join('data', level_name)
     if not os.path.isfile(fullname):
         print('not found')
@@ -222,6 +228,8 @@ if __name__ == '__main__':
     player_image = load_image('mar.png')
 
     level = load_level(level_name)
+    level = np.array([[y for y in x] for x in level], dtype=np.str_)
+    print(level)
 
     state = 'start screen'
     running = True
