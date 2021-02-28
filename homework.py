@@ -119,8 +119,8 @@ class Player(pygame.sprite.Sprite):
         super().__init__(player_group, all_sprites)
         self.image = player_image
         self.rect = self.image.get_rect()
-        self.rect.x = 235
-        self.rect.y = 115
+        self.rect.x = 235 + (tile_width - self.image.get_width()) // 2
+        self.rect.y = 115 + (tile_height - self.image.get_height()) // 2
         self.rect.w = tile_width
         self.rect.h = tile_height
 
